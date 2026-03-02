@@ -28,6 +28,10 @@ export default function PatientDashboard() {
   const [chatMessages, setChatMessages] = useState<{ role: string; content: string }[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
+  const [vaultShared, setVaultShared] = useState(false);
+  const [vaultTimer, setVaultTimer] = useState(0);
+  const [vaultTimerId, setVaultTimerId] = useState<ReturnType<typeof setInterval> | null>(null);
+  const [sharedReportIds, setSharedReportIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (user) loadData();
@@ -61,6 +65,60 @@ export default function PatientDashboard() {
     }).eq("id", patient.id);
     if (error) toast({ title: "Error saving", variant: "destructive" });
     else { toast({ title: "Profile saved!" }); setEditing(false); loadData(); }
+  };
+
+  // Cleanup vault timer on unmount
+  useEffect(() => {
+    return () => { if (vaultTimerId) clearInterval(vaultTimerId); };
+  }, [vaultTimerId]);
+
+  const startVaultShare = async () => {
+    const duration = 15 * 60;
+    const privateReports = reports.filter((r) => r.is_private);
+    const ids = privateReports.map((r) => r.id);
+    setSharedReportIds(ids);
+    setVaultShared(true);
+    setVaultTimer(duration);
+
+    // Make all private reports temporarily visible
+    for (const rid of ids) {
+      await supabase.from("report_files").update({ is_private: false }).eq("id", rid);
+    }
+    loadData();
+    toast({ title: "Vault shared for 15 minutes", description: "Private reports are now temporarily visible." });
+
+    const id = setInterval(() => {
+      setVaultTimer((prev) => {
+        if (prev <= 1) {
+          clearInterval(id);
+          lockVaultWithIds(ids);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    setVaultTimerId(id);
+  };
+
+  const lockVaultWithIds = async (ids: string[]) => {
+    setVaultShared(false);
+    setVaultTimer(0);
+    setVaultTimerId((prev) => { if (prev) clearInterval(prev); return null; });
+    // Re-lock all previously private reports
+    for (const rid of ids) {
+      await supabase.from("report_files").update({ is_private: true }).eq("id", rid);
+    }
+    setSharedReportIds([]);
+    toast({ title: "Vault locked", description: "Private reports are hidden again." });
+    loadData();
+  };
+
+  const lockVault = () => lockVaultWithIds(sharedReportIds);
+
+  const formatTimer = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${sec.toString().padStart(2, "0")}`;
   };
 
   const togglePrivate = async (reportId: string, isPrivate: boolean) => {
@@ -241,11 +299,50 @@ export default function PatientDashboard() {
 
       {/* Privacy Vault */}
       {tab === "vault" && (
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div className="bg-accent/30 rounded-lg p-4 text-sm">
             <p className="font-medium flex items-center gap-2"><Shield className="w-4 h-4" /> Privacy Vault</p>
             <p className="text-muted-foreground mt-1">Reports in your vault are hidden from doctors and diagnostic centers, even with your PIN.</p>
           </div>
+
+          {/* Timed Share Toggle */}
+          <div className="bg-card rounded-xl border border-border p-4 shadow-card">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-semibold text-sm flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-primary" /> Temporary Vault Share
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {vaultShared
+                    ? `Vault is open — auto-locks in ${formatTimer(vaultTimer)}`
+                    : "Share all private reports for 15 minutes, then auto-lock"}
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                {vaultShared && (
+                  <Button variant="destructive" size="sm" onClick={lockVault}>
+                    <Lock className="w-3 h-3 mr-1" /> Lock Now
+                  </Button>
+                )}
+                <Switch
+                  checked={vaultShared}
+                  onCheckedChange={(v) => { if (v) startVaultShare(); else lockVault(); }}
+                />
+              </div>
+            </div>
+            {vaultShared && (
+              <div className="mt-3">
+                <div className="w-full bg-muted rounded-full h-2">
+                  <div
+                    className="bg-primary h-2 rounded-full transition-all duration-1000"
+                    style={{ width: `${(vaultTimer / (15 * 60)) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Report list */}
           {reports.map((r) => (
             <div key={r.id} className="flex items-center gap-3 p-3 bg-card rounded-lg border border-border">
               <FileText className="w-4 h-4 text-muted-foreground" />
@@ -255,7 +352,11 @@ export default function PatientDashboard() {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">{r.is_private ? "Private" : "Visible"}</span>
-                <Switch checked={r.is_private} onCheckedChange={(v) => togglePrivate(r.id, v)} />
+                <Switch
+                  checked={r.is_private}
+                  onCheckedChange={(v) => togglePrivate(r.id, v)}
+                  disabled={vaultShared}
+                />
               </div>
             </div>
           ))}
