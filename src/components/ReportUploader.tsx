@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { Upload, FileUp, Check, X } from "lucide-react";
+import { Upload, FileUp, Check, X, FlaskConical } from "lucide-react";
 
 interface ReportUploaderProps {
   patientId: string;
@@ -22,6 +22,55 @@ export default function ReportUploader({ patientId, uploadedByRole, onClose, onS
   const fileRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { user } = useAuth();
+
+  const generateDemoReport = () => {
+    const reportTypes = ["Blood Test - CBC", "Lipid Profile", "Thyroid Panel", "Liver Function Test", "Kidney Function Test"];
+    const randomType = reportTypes[Math.floor(Math.random() * reportTypes.length)];
+    setReportType(randomType);
+
+    // Generate a simple text-based PDF blob
+    const now = new Date().toLocaleString();
+    const pdfContent = `%PDF-1.4
+1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj
+2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj
+3 0 obj<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R/Resources<</Font<</F1 4 0 R>>>>/Contents 5 0 R>>endobj
+4 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj
+5 0 obj<</Length 420>>
+stream
+BT
+/F1 18 Tf 50 740 Td (TurantCare - ${randomType}) Tj
+/F1 12 Tf 0 -30 Td (Patient Report - Demo/Sample) Tj
+0 -20 Td (Generated: ${now}) Tj
+0 -30 Td (--- Results ---) Tj
+0 -20 Td (Hemoglobin: 14.2 g/dL [Normal: 13.5-17.5]) Tj
+0 -20 Td (WBC Count: 7,500 /uL [Normal: 4,500-11,000]) Tj
+0 -20 Td (Platelet Count: 250,000 /uL [Normal: 150,000-400,000]) Tj
+0 -20 Td (RBC Count: 5.1 M/uL [Normal: 4.7-6.1]) Tj
+0 -20 Td (Blood Sugar Fasting: 95 mg/dL [Normal: 70-100]) Tj
+0 -20 Td (Cholesterol Total: 185 mg/dL [Normal: <200]) Tj
+0 -30 Td (Status: All values within normal range.) Tj
+0 -30 Td (Note: This is a demo report for testing purposes only.) Tj
+ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000266 00000 n 
+0000000340 00000 n 
+trailer<</Size 6/Root 1 0 R>>
+startxref
+810
+%%EOF`;
+
+    const blob = new Blob([pdfContent], { type: "application/pdf" });
+    const file = new File([blob], `demo-${randomType.replace(/\s+/g, "-").toLowerCase()}-${Date.now()}.pdf`, { type: "application/pdf" });
+    setFiles([file]);
+    toast({ title: "Demo report generated", description: `${randomType} — ready to upload` });
+  };
 
   const handleUpload = async () => {
     if (!files.length || !user) return;
@@ -118,6 +167,9 @@ export default function ReportUploader({ patientId, uploadedByRole, onClose, onS
                   {files.length ? `${files.length} file(s) selected` : "Click to choose files"}
                 </span>
               </div>
+            </Button>
+            <Button variant="outline" size="sm" className="w-full mt-2 text-xs gap-1.5" onClick={generateDemoReport}>
+              <FlaskConical className="w-3.5 h-3.5" /> Generate Demo Report
             </Button>
           </div>
 
