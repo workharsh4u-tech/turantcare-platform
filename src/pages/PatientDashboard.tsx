@@ -176,9 +176,12 @@ export default function PatientDashboard() {
               <p className="text-2xl font-mono tracking-wider mb-4">{patient.card_number}</p>
               <p className="text-sm opacity-80">{patient.name}</p>
             </div>
-            <div className="mt-4 flex items-center gap-2">
-              <QrCode className="w-5 h-5 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Show this QR to your doctor or diagnostic center</span>
+            <div className="mt-4 flex items-center gap-4">
+              <QRCodeSVG value={patient.card_number} size={80} bgColor="transparent" fgColor="hsl(var(--foreground))" />
+              <div>
+                <p className="text-sm font-medium">Your QR Code</p>
+                <p className="text-xs text-muted-foreground">Show this to your doctor or diagnostic center for quick lookup</p>
+              </div>
             </div>
           </div>
 
