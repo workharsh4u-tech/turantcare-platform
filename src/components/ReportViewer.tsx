@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { Folder, FileText, Download, ArrowLeft, Bot, X, ExternalLink } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 
 interface ReportViewerProps {
   patientId: string;
