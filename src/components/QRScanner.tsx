@@ -10,29 +10,42 @@ interface QRScannerProps {
 
 export default function QRScanner({ onScan, onClose }: QRScannerProps) {
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const isRunningRef = useRef(false);
   const [error, setError] = useState("");
+  const [started, setStarted] = useState(false);
 
-  useEffect(() => {
-    const scanner = new Html5Qrcode("qr-reader");
-    scannerRef.current = scanner;
+  const startScanner = async () => {
+    try {
+      const scanner = new Html5Qrcode("qr-reader");
+      scannerRef.current = scanner;
 
-    scanner.start(
-      { facingMode: "environment" },
-      { fps: 10, qrbox: { width: 250, height: 250 } },
-      (decodedText) => {
-        onScan(decodedText);
-        scanner.stop().catch(() => {});
-      },
-      () => {}
-    ).catch((err) => {
+      await scanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        (decodedText) => {
+          if (isRunningRef.current) {
+            isRunningRef.current = false;
+            scanner.stop().then(() => onScan(decodedText)).catch(() => onScan(decodedText));
+          }
+        },
+        () => {}
+      );
+      isRunningRef.current = true;
+      setStarted(true);
+    } catch (err) {
       setError("Camera access denied or unavailable.");
       console.error(err);
-    });
+    }
+  };
 
+  useEffect(() => {
     return () => {
-      scanner.stop().catch(() => {});
+      if (isRunningRef.current && scannerRef.current) {
+        isRunningRef.current = false;
+        scannerRef.current.stop().catch(() => {});
+      }
     };
-  }, [onScan]);
+  }, []);
 
   return (
     <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur flex items-center justify-center p-4">
@@ -46,6 +59,11 @@ export default function QRScanner({ onScan, onClose }: QRScannerProps) {
           </Button>
         </div>
         <div id="qr-reader" className="rounded-lg overflow-hidden" />
+        {!started && !error && (
+          <Button onClick={startScanner} className="w-full mt-3">
+            <Camera className="w-4 h-4 mr-2" /> Start Camera
+          </Button>
+        )}
         {error && <p className="text-destructive text-sm mt-3">{error}</p>}
       </div>
     </div>
