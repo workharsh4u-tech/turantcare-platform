@@ -13,6 +13,7 @@ import {
   FileText, User, Shield, Clock, QrCode, Bot,
   CreditCard, Lock, Eye, Folder, MessageSquare
 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 
 export default function PatientDashboard() {
   const { user } = useAuth();
