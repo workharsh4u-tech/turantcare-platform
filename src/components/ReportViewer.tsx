@@ -69,12 +69,14 @@ export default function ReportViewer({ patientId, accessedByRole, onClose, showP
       .single();
 
     if (existing) {
-      setSummary(existing.summary_text);
+      // Strip JSON block from display but keep full summary
+      const displayText = existing.summary_text.replace(/```json[\s\S]*?```/g, "").trim();
+      setSummary(displayText);
       setLoadingSummary(false);
       return;
     }
 
-    // Generate new summary via AI
+    // Generate new summary via AI — always sends ALL report names for full analysis
     try {
       const dateReports = reports.filter((r) => r.date_group === dateGroup);
       const { data, error } = await supabase.functions.invoke("ai-summary", {
@@ -123,38 +125,31 @@ export default function ReportViewer({ patientId, accessedByRole, onClose, showP
 
           <div className="flex-1 overflow-y-auto p-6">
             {!selectedDate ? (
-              <div className="space-y-6">
-                {/* Trend Graph - Doctor view only */}
-                {isDoctorView && (
-                  <TrendGraph patientId={patientId} />
+              <div className="grid gap-3">
+                {dateGroups.length === 0 && (
+                  <p className="text-muted-foreground text-center py-8">No reports found.</p>
                 )}
-
-                <div className="grid gap-3">
-                  {dateGroups.length === 0 && (
-                    <p className="text-muted-foreground text-center py-8">No reports found.</p>
-                  )}
-                  {dateGroups.map((d) => {
-                    const count = reports.filter((r) => r.date_group === d).length;
-                    const types = [...new Set(reports.filter((r) => r.date_group === d).map((r: any) => r.report_type).filter(Boolean))];
-                    return (
-                      <button
-                        key={d}
-                        onClick={() => { setSelectedDate(d); loadSummary(d); }}
-                        className="flex items-center gap-4 p-4 rounded-lg border border-border hover:border-primary/50 hover:bg-accent/30 transition-all text-left"
-                      >
-                        <div className="w-12 h-12 rounded-lg bg-accent flex items-center justify-center">
-                          <Folder className="w-6 h-6 text-accent-foreground" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-semibold">{d}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {count} file(s) {types.length > 0 && `• ${types.join(", ")}`}
-                          </p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+                {dateGroups.map((d) => {
+                  const count = reports.filter((r) => r.date_group === d).length;
+                  const types = [...new Set(reports.filter((r) => r.date_group === d).map((r: any) => r.report_type).filter(Boolean))];
+                  return (
+                    <button
+                      key={d}
+                      onClick={() => { setSelectedDate(d); loadSummary(d); }}
+                      className="flex items-center gap-4 p-4 rounded-lg border border-border hover:border-primary/50 hover:bg-accent/30 transition-all text-left"
+                    >
+                      <div className="w-12 h-12 rounded-lg bg-accent flex items-center justify-center">
+                        <Folder className="w-6 h-6 text-accent-foreground" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-semibold">{d}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {count} file(s) {types.length > 0 && `• ${types.join(", ")}`}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             ) : (
               <div className="grid lg:grid-cols-2 gap-6">
@@ -197,6 +192,11 @@ export default function ReportViewer({ patientId, accessedByRole, onClose, showP
                     <p className="text-sm text-muted-foreground">No summary available.</p>
                   )}
                   <p className="text-xs text-muted-foreground mt-4 italic">⚠️ AI-generated summary. Not medical advice.</p>
+
+                  {/* Trend Graph inside AI Summary - Doctor view only */}
+                  {isDoctorView && (
+                    <TrendGraph patientId={patientId} />
+                  )}
                 </div>
               </div>
             )}

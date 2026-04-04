@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { X, FileText } from "lucide-react";
+import { X, FileText, AlertTriangle, RefreshCw } from "lucide-react";
 
 interface EmbeddedReportViewerProps {
   fileUrl: string;
@@ -10,8 +10,19 @@ interface EmbeddedReportViewerProps {
 }
 
 export default function EmbeddedReportViewer({ fileUrl, fileName, fileType, onClose }: EmbeddedReportViewerProps) {
+  const [pdfError, setPdfError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+
   const isImage = fileType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(fileName);
   const isPdf = fileType === "application/pdf" || /\.pdf$/i.test(fileName);
+
+  // Validate URL exists
+  const hasValidUrl = fileUrl && fileUrl.trim().length > 0;
+
+  const handleRetry = () => {
+    setPdfError(false);
+    setRetryCount((c) => c + 1);
+  };
 
   return (
     <div className="fixed inset-0 z-[60] bg-background/90 backdrop-blur-sm flex flex-col">
@@ -36,13 +47,38 @@ export default function EmbeddedReportViewer({ fileUrl, fileName, fileType, onCl
 
         {/* Content */}
         <div className="h-full w-full overflow-auto flex items-center justify-center p-4">
-          {isPdf ? (
-            <iframe
-              src={`${fileUrl}#toolbar=0&navpanes=0&scrollbar=1`}
+          {!hasValidUrl ? (
+            <div className="text-center py-12">
+              <AlertTriangle className="w-16 h-16 text-destructive mx-auto mb-4" />
+              <p className="text-muted-foreground font-medium">Report file URL is unavailable.</p>
+              <p className="text-xs text-muted-foreground mt-2">Please try again later or contact support.</p>
+            </div>
+          ) : isPdf && !pdfError ? (
+            <object
+              key={retryCount}
+              data={`${fileUrl}#toolbar=0&navpanes=0&scrollbar=1`}
+              type="application/pdf"
               className="w-full h-full rounded-lg border border-border"
               style={{ minHeight: "80vh" }}
-              title={fileName}
-            />
+            >
+              {/* Fallback if object tag fails */}
+              <iframe
+                src={`${fileUrl}#toolbar=0&navpanes=0&scrollbar=1`}
+                className="w-full h-full rounded-lg border border-border"
+                style={{ minHeight: "80vh" }}
+                title={fileName}
+                onError={() => setPdfError(true)}
+              />
+            </object>
+          ) : isPdf && pdfError ? (
+            <div className="text-center py-12">
+              <AlertTriangle className="w-12 h-12 text-destructive mx-auto mb-4" />
+              <p className="text-muted-foreground font-medium">Unable to display this report.</p>
+              <p className="text-xs text-muted-foreground mt-2 mb-4">The PDF could not be loaded in the viewer.</p>
+              <Button variant="outline" size="sm" onClick={handleRetry} className="gap-2">
+                <RefreshCw className="w-4 h-4" /> Try reloading
+              </Button>
+            </div>
           ) : isImage ? (
             <img
               src={fileUrl}
