@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { X, FileText } from "lucide-react";
+import { X, FileText, Loader2 } from "lucide-react";
 
 interface EmbeddedReportViewerProps {
   fileUrl: string;
@@ -12,6 +12,37 @@ interface EmbeddedReportViewerProps {
 export default function EmbeddedReportViewer({ fileUrl, fileName, fileType, onClose }: EmbeddedReportViewerProps) {
   const isImage = fileType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(fileName);
   const isPdf = fileType === "application/pdf" || /\.pdf$/i.test(fileName);
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let revokedUrl: string | null = null;
+    const fetchAsBlob = async () => {
+      try {
+        setLoading(true);
+        setLoadError(false);
+        const res = await fetch(fileUrl);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const blob = await res.blob();
+        const typedBlob = isPdf
+          ? new Blob([blob], { type: "application/pdf" })
+          : blob;
+        const url = URL.createObjectURL(typedBlob);
+        revokedUrl = url;
+        setBlobUrl(url);
+      } catch (e) {
+        console.error("Failed to load report:", e);
+        setLoadError(true);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAsBlob();
+    return () => {
+      if (revokedUrl) URL.revokeObjectURL(revokedUrl);
+    };
+  }, [fileUrl, isPdf]);
 
   return (
     <div className="fixed inset-0 z-[60] bg-background/90 backdrop-blur-sm flex flex-col">
