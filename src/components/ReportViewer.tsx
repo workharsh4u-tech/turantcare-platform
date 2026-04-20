@@ -19,7 +19,7 @@ export default function ReportViewer({ patientId, accessedByRole, onClose, showP
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
   const [loadingSummary, setLoadingSummary] = useState(false);
-  const [viewingFile, setViewingFile] = useState<any>(null);
+  
   const { user } = useAuth();
 
   useEffect(() => {
