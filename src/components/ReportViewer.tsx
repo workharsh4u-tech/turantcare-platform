@@ -169,12 +169,25 @@ export default function ReportViewer({ patientId, accessedByRole, onClose, showP
                       <Button
                         variant="ghost"
                         size="icon"
-                        asChild
                         title="Open report in new tab"
+                        onClick={async () => {
+                          try {
+                            const res = await fetch(r.file_url);
+                            const blob = await res.blob();
+                            const url = URL.createObjectURL(blob);
+                            const win = window.open(url, "_blank", "noopener,noreferrer");
+                            if (!win) {
+                              // Popup blocked — fallback to direct navigation
+                              window.location.href = url;
+                            }
+                            setTimeout(() => URL.revokeObjectURL(url), 60000);
+                          } catch (e) {
+                            console.error("Failed to open report:", e);
+                            window.open(r.file_url, "_blank", "noopener,noreferrer");
+                          }
+                        }}
                       >
-                        <a href={r.file_url} target="_blank" rel="noopener noreferrer">
-                          <Eye className="w-4 h-4" />
-                        </a>
+                        <Eye className="w-4 h-4" />
                       </Button>
                     </div>
                   ))}
