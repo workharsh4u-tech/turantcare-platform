@@ -205,15 +205,6 @@ export default function ReportViewer({ patientId, accessedByRole, onClose, showP
         </div>
       </div>
 
-      {/* Embedded file viewer */}
-      {viewingFile && (
-        <EmbeddedReportViewer
-          fileUrl={viewingFile.file_url}
-          fileName={viewingFile.file_name}
-          fileType={viewingFile.file_type}
-          onClose={() => setViewingFile(null)}
-        />
-      )}
     </>
   );
 }
