@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { Folder, FileText, ArrowLeft, Bot, X, Eye } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import EmbeddedReportViewer from "@/components/EmbeddedReportViewer";
 import TrendGraph from "@/components/TrendGraph";
 
 interface ReportViewerProps {
@@ -20,7 +19,7 @@ export default function ReportViewer({ patientId, accessedByRole, onClose, showP
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
   const [loadingSummary, setLoadingSummary] = useState(false);
-  const [viewingFile, setViewingFile] = useState<any>(null);
+  
   const { user } = useAuth();
 
   useEffect(() => {
@@ -170,10 +169,12 @@ export default function ReportViewer({ patientId, accessedByRole, onClose, showP
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => setViewingFile(r)}
-                        title="View report"
+                        asChild
+                        title="Open report in new tab"
                       >
-                        <Eye className="w-4 h-4" />
+                        <a href={r.file_url} target="_blank" rel="noopener noreferrer">
+                          <Eye className="w-4 h-4" />
+                        </a>
                       </Button>
                     </div>
                   ))}
@@ -204,15 +205,6 @@ export default function ReportViewer({ patientId, accessedByRole, onClose, showP
         </div>
       </div>
 
-      {/* Embedded file viewer */}
-      {viewingFile && (
-        <EmbeddedReportViewer
-          fileUrl={viewingFile.file_url}
-          fileName={viewingFile.file_name}
-          fileType={viewingFile.file_type}
-          onClose={() => setViewingFile(null)}
-        />
-      )}
     </>
   );
 }
