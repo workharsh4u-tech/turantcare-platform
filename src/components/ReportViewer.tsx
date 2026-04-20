@@ -170,10 +170,12 @@ export default function ReportViewer({ patientId, accessedByRole, onClose, showP
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => setViewingFile(r)}
-                        title="View report"
+                        asChild
+                        title="Open report in new tab"
                       >
-                        <Eye className="w-4 h-4" />
+                        <a href={r.file_url} target="_blank" rel="noopener noreferrer">
+                          <Eye className="w-4 h-4" />
+                        </a>
                       </Button>
                     </div>
                   ))}
