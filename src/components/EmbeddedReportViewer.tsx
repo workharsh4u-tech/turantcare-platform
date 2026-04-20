@@ -67,16 +67,27 @@ export default function EmbeddedReportViewer({ fileUrl, fileName, fileType, onCl
 
         {/* Content */}
         <div className="h-full w-full overflow-auto flex items-center justify-center p-4">
-          {isPdf ? (
+          {loading ? (
+            <div className="text-center py-12">
+              <Loader2 className="w-12 h-12 text-primary mx-auto mb-4 animate-spin" />
+              <p className="text-muted-foreground">Loading report securely...</p>
+            </div>
+          ) : loadError || !blobUrl ? (
+            <div className="text-center py-12">
+              <FileText className="w-16 h-16 text-destructive mx-auto mb-4" />
+              <p className="text-destructive font-medium">Unable to load report.</p>
+              <p className="text-xs text-muted-foreground mt-2">Please try again later.</p>
+            </div>
+          ) : isPdf ? (
             <iframe
-              src={`${fileUrl}#toolbar=0&navpanes=0&scrollbar=1`}
-              className="w-full h-full rounded-lg border border-border"
+              src={`${blobUrl}#toolbar=0&navpanes=0&scrollbar=1`}
+              className="w-full h-full rounded-lg border border-border bg-white"
               style={{ minHeight: "80vh" }}
               title={fileName}
             />
           ) : isImage ? (
             <img
-              src={fileUrl}
+              src={blobUrl}
               alt={fileName}
               className="max-w-full max-h-full object-contain rounded-lg"
               draggable={false}
