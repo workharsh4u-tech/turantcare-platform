@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { getHospitalByAdmin, getHospitalDoctors, createHospitalDoctor } from "@/services/hospital.service";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -11,8 +11,8 @@ import { Building2, UserPlus, Users } from "lucide-react";
 export default function HospitalAdmin() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [hospital, setHospital] = useState<any>(null);
-  const [doctors, setDoctors] = useState<any[]>([]);
+  const [hospital, setHospital] = useState<Record<string, any> | null>(null);
+  const [doctors, setDoctors] = useState<Record<string, any>[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", specialization: "", password: "" });
   const [adding, setAdding] = useState(false);
@@ -22,29 +22,35 @@ export default function HospitalAdmin() {
   }, [user]);
 
   const loadData = async () => {
-    const { data: h } = await supabase.from("hospitals").select("*").eq("admin_user_id", user!.id).single();
+  try {
+    const h = await getHospitalByAdmin(user!.id);
     if (h) {
       setHospital(h);
-      const { data: d } = await supabase.from("doctors").select("*").eq("hospital_id", h.id);
-      setDoctors(d || []);
+      const d = await getHospitalDoctors(h.id);
+      setDoctors(d);
     }
-  };
+  } catch (err) {
+    console.error("Hospital data load failed:", err);
+    toast({
+      title: "Error",
+      description: "Unable to load hospital data",
+      variant: "destructive",
+    });
+  }
+};
 
   const addDoctor = async () => {
     if (!form.name || !form.email || !form.password) return;
     setAdding(true);
     try {
       // Create user account for the doctor via edge function
-      const { data, error } = await supabase.functions.invoke("create-hospital-doctor", {
-        body: {
-          email: form.email,
-          password: form.password,
-          fullName: form.name,
-          specialization: form.specialization,
-          hospitalId: hospital.id,
-        },
+      await createHospitalDoctor({
+      email: form.email,
+      password: form.password,
+      fullName: form.name,
+      specialization: form.specialization,
+      hospitalId: hospital.id,
       });
-      if (error) throw error;
       toast({ title: "Doctor account created!" });
       setShowAdd(false);
       setForm({ name: "", email: "", specialization: "", password: "" });
