@@ -173,23 +173,8 @@ export default function ReportViewer({ patientId, accessedByRole, onClose, showP
                       <Button
                         variant="ghost"
                         size="icon"
-                        title="Open report in new tab"
-                        onClick={async () => {
-                          try {
-                            const res = await fetch(r.file_url);
-                            const blob = await res.blob();
-                            const url = URL.createObjectURL(blob);
-                            const win = window.open(url, "_blank", "noopener,noreferrer");
-                            if (!win) {
-                              // Popup blocked — fallback to direct navigation
-                              window.location.href = url;
-                            }
-                            setTimeout(() => URL.revokeObjectURL(url), 60000);
-                          } catch (e) {
-                            console.error("Failed to open report:", e);
-                            window.open(r.file_url, "_blank", "noopener,noreferrer");
-                          }
-                        }}
+                        title="Open report in viewer"
+                        onClick={() => setViewerFile(r)}
                       >
                         <Eye className="w-4 h-4" />
                       </Button>
@@ -198,9 +183,23 @@ export default function ReportViewer({ patientId, accessedByRole, onClose, showP
                 </div>
 
                 <div className="bg-accent/30 rounded-lg p-4">
-                  <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider flex items-center gap-2 mb-3">
-                    <Bot className="w-4 h-4" /> AI Summary
-                  </h4>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                      <Bot className="w-4 h-4" /> AI Summary
+                    </h4>
+                    {selectedDate && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={loadingSummary}
+                        onClick={() => loadSummary(selectedDate, true)}
+                        title="Regenerate AI summary"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${loadingSummary ? "animate-spin" : ""}`} />
+                        <span className="ml-1.5 text-xs">Regenerate</span>
+                      </Button>
+                    )}
+                  </div>
                   {loadingSummary ? (
                     <div className="animate-pulse space-y-2">
                       <div className="h-4 bg-muted rounded w-3/4" />
