@@ -389,7 +389,7 @@ export default function PatientDashboard() {
                 }`}>
                   {m.role === "assistant" ? (
                     <div className="prose prose-sm dark:prose-invert max-w-none">
-                      <ReactMarkdown>{m.content}</ReactMarkdown>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
                     </div>
                   ) : m.content}
                 </div>
