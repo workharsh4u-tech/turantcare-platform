@@ -2,9 +2,11 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import { Folder, FileText, ArrowLeft, Bot, X, Eye } from "lucide-react";
+import { Folder, FileText, ArrowLeft, Bot, X, Eye, RefreshCw } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import TrendGraph from "@/components/TrendGraph";
+import EmbeddedReportViewer from "@/components/EmbeddedReportViewer";
 
 interface ReportViewerProps {
   patientId: string;
@@ -19,8 +21,9 @@ export default function ReportViewer({ patientId, accessedByRole, onClose, showP
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
   const [loadingSummary, setLoadingSummary] = useState(false);
-  
-  const { user } = useAuth();
+  const [viewerFile, setViewerFile] = useState<any | null>(null);
+
+  const { user, profile } = useAuth();
 
   useEffect(() => {
     loadReports();
@@ -55,28 +58,30 @@ export default function ReportViewer({ patientId, accessedByRole, onClose, showP
     }
   };
 
-  const loadSummary = async (dateGroup: string) => {
+  const loadSummary = async (dateGroup: string, forceRegenerate = false) => {
     setLoadingSummary(true);
     setSummary(null);
 
-    // Check existing summary
-    const { data: existing } = await supabase
-      .from("ai_summaries")
-      .select("*")
-      .eq("patient_id", patientId)
-      .eq("date_group", dateGroup)
-      .single();
+    if (!forceRegenerate) {
+      // Check existing summary
+      const { data: existing } = await supabase
+        .from("ai_summaries")
+        .select("*")
+        .eq("patient_id", patientId)
+        .eq("date_group", dateGroup)
+        .maybeSingle();
 
-    if (existing) {
-      setSummary(existing.summary_text);
-      setLoadingSummary(false);
-      return;
+      if (existing) {
+        setSummary(existing.summary_text);
+        setLoadingSummary(false);
+        return;
+      }
     }
 
     // Generate new summary via AI
     try {
       const dateReports = reports.filter((r) => r.date_group === dateGroup);
-      const { data, error } = await supabase.functions.invoke("ai-summary", {
+      const { data } = await supabase.functions.invoke("ai-summary", {
         body: { patientId, dateGroup, reportNames: dateReports.map((r: any) => r.file_name) },
       });
       if (data?.summary) {
@@ -169,23 +174,8 @@ export default function ReportViewer({ patientId, accessedByRole, onClose, showP
                       <Button
                         variant="ghost"
                         size="icon"
-                        title="Open report in new tab"
-                        onClick={async () => {
-                          try {
-                            const res = await fetch(r.file_url);
-                            const blob = await res.blob();
-                            const url = URL.createObjectURL(blob);
-                            const win = window.open(url, "_blank", "noopener,noreferrer");
-                            if (!win) {
-                              // Popup blocked — fallback to direct navigation
-                              window.location.href = url;
-                            }
-                            setTimeout(() => URL.revokeObjectURL(url), 60000);
-                          } catch (e) {
-                            console.error("Failed to open report:", e);
-                            window.open(r.file_url, "_blank", "noopener,noreferrer");
-                          }
-                        }}
+                        title="Open report in viewer"
+                        onClick={() => setViewerFile(r)}
                       >
                         <Eye className="w-4 h-4" />
                       </Button>
@@ -194,9 +184,23 @@ export default function ReportViewer({ patientId, accessedByRole, onClose, showP
                 </div>
 
                 <div className="bg-accent/30 rounded-lg p-4">
-                  <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider flex items-center gap-2 mb-3">
-                    <Bot className="w-4 h-4" /> AI Summary
-                  </h4>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                      <Bot className="w-4 h-4" /> AI Summary
+                    </h4>
+                    {selectedDate && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={loadingSummary}
+                        onClick={() => loadSummary(selectedDate, true)}
+                        title="Regenerate AI summary"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${loadingSummary ? "animate-spin" : ""}`} />
+                        <span className="ml-1.5 text-xs">Regenerate</span>
+                      </Button>
+                    )}
+                  </div>
                   {loadingSummary ? (
                     <div className="animate-pulse space-y-2">
                       <div className="h-4 bg-muted rounded w-3/4" />
@@ -204,8 +208,8 @@ export default function ReportViewer({ patientId, accessedByRole, onClose, showP
                       <div className="h-4 bg-muted rounded w-2/3" />
                     </div>
                   ) : summary ? (
-                    <div className="text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none">
-                      <ReactMarkdown>{summary}</ReactMarkdown>
+                    <div className="text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-table:text-xs prose-th:px-2 prose-td:px-2 prose-th:py-1 prose-td:py-1 prose-table:border prose-th:border prose-td:border prose-th:border-border prose-td:border-border">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{summary}</ReactMarkdown>
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground">No summary available.</p>
@@ -218,6 +222,15 @@ export default function ReportViewer({ patientId, accessedByRole, onClose, showP
         </div>
       </div>
 
+      {viewerFile && (
+        <EmbeddedReportViewer
+          fileUrl={viewerFile.file_url}
+          fileName={viewerFile.file_name}
+          fileType={viewerFile.file_type}
+          watermark={`TurantCare\n${profile?.full_name || accessedByRole}\n${new Date().toLocaleString()}`}
+          onClose={() => setViewerFile(null)}
+        />
+      )}
     </>
   );
 }
