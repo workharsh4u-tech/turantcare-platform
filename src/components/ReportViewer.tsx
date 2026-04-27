@@ -1,5 +1,11 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import {
+  getPatientReports,
+  logReportAccess,
+  getExistingSummary,
+  generateAISummary,
+  storeAISummary
+} from "@/services/report.service";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { Folder, FileText, ArrowLeft, Bot, X, Eye, RefreshCw } from "lucide-react";
@@ -30,33 +36,20 @@ export default function ReportViewer({ patientId, accessedByRole, onClose, showP
   }, [patientId]);
 
   const loadReports = async () => {
-    let query = supabase
-      .from("report_files")
-      .select("*")
-      .eq("patient_id", patientId)
-      .order("created_at", { ascending: false });
+  try {
+    const data = await getPatientReports(patientId, showPrivate);
+    setReports(data);
 
-    if (!showPrivate) {
-      query = query.eq("is_private", false);
-    }
+    const groups = [...new Set(data.map((r: any) => r.date_group))].sort().reverse();
+    setDateGroups(groups);
 
-    const { data } = await query;
-    if (data) {
-      setReports(data);
-      const groups = [...new Set(data.map((r: any) => r.date_group))].sort().reverse();
-      setDateGroups(groups);
-    }
-
-    // Log access
     if (user) {
-      await supabase.from("access_logs").insert({
-        patient_id: patientId,
-        accessed_by_role: accessedByRole,
-        accessed_by_id: user.id,
-        action: "view",
-      });
+      await logReportAccess(patientId, accessedByRole, user.id);
     }
-  };
+  } catch (err) {
+    console.error("Report loading failed:", err);
+  }
+};
 
   const loadSummary = async (dateGroup: string, forceRegenerate = false) => {
     setLoadingSummary(true);
@@ -64,12 +57,7 @@ export default function ReportViewer({ patientId, accessedByRole, onClose, showP
 
     if (!forceRegenerate) {
       // Check existing summary
-      const { data: existing } = await supabase
-        .from("ai_summaries")
-        .select("*")
-        .eq("patient_id", patientId)
-        .eq("date_group", dateGroup)
-        .maybeSingle();
+      const existing = await getExistingSummary(patientId, dateGroup);
 
       if (existing) {
         setSummary(existing.summary_text);
@@ -81,20 +69,18 @@ export default function ReportViewer({ patientId, accessedByRole, onClose, showP
     // Generate new summary via AI
     try {
       const dateReports = reports.filter((r) => r.date_group === dateGroup);
-      const { data } = await supabase.functions.invoke("ai-summary", {
-        body: { patientId, dateGroup, reportNames: dateReports.map((r: any) => r.file_name) },
-      });
+      const data = await generateAISummary(
+      patientId,
+      dateGroup,
+      dateReports.map((r: any) => r.file_name)
+    );
       if (data?.summary) {
         setSummary(data.summary);
         // Store summary (include parameters JSON for trend tracking)
         const summaryToStore = data.parameters?.length
           ? `${data.summary}\n\n\`\`\`json\n${JSON.stringify({ parameters: data.parameters })}\n\`\`\``
           : data.summary;
-        await supabase.from("ai_summaries").upsert({
-          patient_id: patientId,
-          date_group: dateGroup,
-          summary_text: summaryToStore,
-        }, { onConflict: "patient_id,date_group" });
+        await storeAISummary(patientId, dateGroup, summaryToStore);
       }
     } catch {
       setSummary("AI summary unavailable at this time.");
