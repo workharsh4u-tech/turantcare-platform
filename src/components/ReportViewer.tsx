@@ -1,5 +1,6 @@
 import type { ReportFile } from "@/types/models";
 import { useState, useEffect } from "react";
+const [selectedReport, setSelectedReport] = useState<ReportFile | null>(null);
 import {
   getPatientReports,
   logReportAccess,
@@ -130,7 +131,11 @@ export default function ReportViewer({ patientId, accessedByRole, onClose, showP
                     return (
                       <button
                         key={d}
-                        onClick={() => { setSelectedDate(d); loadSummary(d); }}
+                        onClick={() => {
+                        setSelectedDate(d);
+                        setSummary(null);
+                        setSelectedReport(null);
+}                       }}
                         className="flex items-center gap-4 p-4 rounded-lg border border-border hover:border-primary/50 hover:bg-accent/30 transition-all text-left"
                       >
                         <div className="w-12 h-12 rounded-lg bg-accent flex items-center justify-center">
