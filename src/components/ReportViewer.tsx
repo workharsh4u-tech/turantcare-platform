@@ -140,7 +140,7 @@ export default function ReportViewer({ patientId, accessedByRole, onClose, showP
                         setSelectedDate(d);
                         setSummary(null);
                         setSelectedReport(null);
-}                       }}
+                        }}
                         className="flex items-center gap-4 p-4 rounded-lg border border-border hover:border-primary/50 hover:bg-accent/30 transition-all text-left"
                       >
                         <div className="w-12 h-12 rounded-lg bg-accent flex items-center justify-center">
